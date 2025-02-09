@@ -1,0 +1,14 @@
+version: "2"
+
+sql:
+  - engine: "postgresql"
+    schema: "./db/migration" # путь к файлам схемы
+    queries: "./db/query" # путь к файлам с запросами
+    gen:
+      go:
+        out: "./db/sqlc"
+        package: "sqlc"
+        emit_json_tags: true
+        emit_prepared_queries: false
+        emit_interface: false
+        emit_exact_table_names: false
