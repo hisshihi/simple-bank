@@ -26,7 +26,7 @@ RETURNING id, from_account_id, to_account_id, amount, created_at
 type CreateTransferParams struct {
 	FromAccountID sql.NullInt64 `json:"from_account_id"`
 	ToAccountID   sql.NullInt64 `json:"to_account_id"`
-	Amount        string        `json:"amount"`
+	Amount        int64         `json:"amount"`
 }
 
 func (q *Queries) CreateTransfer(ctx context.Context, arg CreateTransferParams) (Transfer, error) {
@@ -119,8 +119,8 @@ RETURNING id, from_account_id, to_account_id, amount, created_at
 `
 
 type UpdateTransferParams struct {
-	ID     int64  `json:"id"`
-	Amount string `json:"amount"`
+	ID     int64 `json:"id"`
+	Amount int64 `json:"amount"`
 }
 
 func (q *Queries) UpdateTransfer(ctx context.Context, arg UpdateTransferParams) (Transfer, error) {
