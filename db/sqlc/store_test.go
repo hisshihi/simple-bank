@@ -120,3 +120,58 @@ func TestTransferTx(t *testing.T) {
 	require.Equal(t, account2.Balance+int64(n)*amount, updatedAccount2.Balance) // баланс аккаунта 2 должен быть равен начальному балансу плюс количество переводов умноженное на сумму перевода
 
 }
+
+// Тест на deadlock
+func TestTransferTxDeadlock(t *testing.T) {
+	store := NewStore(testDB)
+
+	account1 := createRandomAccount(t)
+	account2 := createRandomAccount(t)
+	fmt.Println(">>before:", account1.Balance, account2.Balance)
+
+	// запускаем n горутин
+	n := 10
+	// сумма перевода
+	amount := int64(10)
+	errs := make(chan error)
+
+	// запускаем n горутин для передачи средств между счетами
+	for i := range n {
+		fromAccountID := account1.ID
+		toAccountID := account2.ID
+
+		if i%2 == 1 {
+			fromAccountID = account2.ID
+			toAccountID = account1.ID
+		}
+
+		go func() {
+			_, err := store.TransferTx(context.Background(), TransferTxParams{
+				FromAccountID: fromAccountID,
+				ToAccountID:   toAccountID,
+				Amount:        amount,
+			})
+
+			errs <- err
+		}()
+	}
+
+	// проверяем результаты
+	for range n {
+		err := <-errs
+		require.NoError(t, err)
+	}
+
+	// проверяем финальное обновление балансов
+	updatedAccount1, err := testQueries.GetAccount(context.Background(), account1.ID)
+	require.NoError(t, err)
+
+	updatedAccount2, err := testQueries.GetAccount(context.Background(), account2.ID)
+	require.NoError(t, err)
+
+	fmt.Println(">>afters:", updatedAccount1.Balance, updatedAccount2.Balance)
+
+	require.Equal(t, account1.Balance, updatedAccount1.Balance) // баланс аккаунта 1 должен быть равен начальному балансу минус количество переводов умноженное на сумму перевода
+	require.Equal(t, account2.Balance, updatedAccount2.Balance) // баланс аккаунта 2 должен быть равен начальному балансу плюс количество переводов умноженное на сумму перевода
+
+}
