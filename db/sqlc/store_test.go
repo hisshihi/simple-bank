@@ -8,6 +8,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+/*
+Проверяет базовую логику переводов
+Контролирует:
+Целостность данных
+Изменения баланса
+Отсутствие расхождений между дебетом и кредитом
+*/
 func TestTransferTx(t *testing.T) {
 	store := NewStore(testDB)
 
@@ -121,7 +128,13 @@ func TestTransferTx(t *testing.T) {
 
 }
 
-// Тест на deadlock
+/* 
+Имитирует конкурентные операции с разными направлениями переводов
+10 горутин, где каждая нечётная операция меняет направление перевода
+Проверяет что:
+Нет deadlock'ов
+Итоговые балансы соответствуют ожиданиям
+*/
 func TestTransferTxDeadlock(t *testing.T) {
 	store := NewStore(testDB)
 

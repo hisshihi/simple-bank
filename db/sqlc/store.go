@@ -6,7 +6,11 @@ import (
 	"fmt"
 )
 
-// Store предоставляет все функции для доступа к базе данных а также транзакции
+/*
+Объединяет SQL-запросы (сгенерированные sqlc) и подключение к БД.
+
+	Это центральная точка для выполнения операций.
+*/
 type Store struct {
 	*Queries
 	db *sql.DB
@@ -67,12 +71,13 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 	err := store.execTx(ctx, func(q *Queries) error {
 		var err error
 
-		// Создаём запись в истории транзакций
+		// Создание записи о переводе
 		result.Transfer, err = q.CreateTransfer(ctx, CreateTransferParams(arg))
 		if err != nil {
 			return err
 		}
 
+		// Создание двух записей в истории операций (дебет и кредит)
 		// Создаём запись в истории транзакций для счета отправителя
 		result.FromEntry, err = q.CreateEntry(ctx, CreateEntryParams{
 			AccountID: arg.FromAccountID,
@@ -82,6 +87,7 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return err
 		}
 
+		// Создание двух записей в истории операций (дебет и кредит)
 		// Создаём запись в истории транзакций для счета получателя
 		result.ToEntry, err = q.CreateEntry(ctx, CreateEntryParams{
 			AccountID: arg.ToAccountID,
@@ -91,19 +97,29 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return err
 		}
 
+		// Обновление балансов счетов с deadlock prevention:
 		// Если id счета отправителя меньше id счета получателя, то переводим деньги от отправителя к получателю
 		// Иначе переводим деньги от получателя к отправитлю
+
+		/*
+			Ключевой момент: порядок обновления счетов всегда определяется их ID.
+			 Это предотвращает deadlock'и при параллельных операциях.
+		*/
 		if arg.FromAccountID < arg.ToAccountID {
 			result.FromAccount, result.ToAccount, err = addMoney(ctx, q, arg.FromAccountID, -arg.Amount, arg.ToAccountID, arg.Amount)
 		} else {
 			result.ToAccount, result.FromAccount, err = addMoney(ctx, q, arg.ToAccountID, arg.Amount, arg.FromAccountID, -arg.Amount)
 		}
-		
+
 		return nil
 	})
 	return result, err
 }
 
+/*
+Выполняет атомарное обновление балансов
+Всегда обновляет счета в строгом порядке (по возрастанию ID)
+*/
 func addMoney(
 	ctx context.Context,
 	q *Queries,
@@ -113,7 +129,7 @@ func addMoney(
 	amount2 int64,
 ) (account1 Account, account2 Account, err error) {
 	account1, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{
-		ID: accountID1,
+		ID:     accountID1,
 		Amount: amount1,
 	})
 	if err != nil {
@@ -121,7 +137,7 @@ func addMoney(
 	}
 
 	account2, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{
-		ID: accountID2,
+		ID:     accountID2,
 		Amount: amount2,
 	})
 	if err != nil {
