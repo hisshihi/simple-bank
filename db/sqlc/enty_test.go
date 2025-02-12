@@ -12,11 +12,8 @@ import (
 
 func createRandomEntry(t *testing.T) Entry {
 	arg := CreateEntryParams{
-		AccountID: sql.NullInt64{
-			Int64: createRandomAccount(t).ID,
-			Valid: true,
-		},
-		Amount: util.RandomMoney(),
+		AccountID: createRandomAccount(t).ID,
+		Amount:    util.RandomMoney(),
 	}
 
 	entry, err := testQueries.CreateEntry(context.Background(), arg)
