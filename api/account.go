@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -73,7 +74,7 @@ func (server *Server) listAccounts(ctx *gin.Context) {
 	}
 
 	arg := sqlc.ListAccountsParams{
-		Limit: req.PageSize,
+		Limit:  req.PageSize,
 		Offset: (req.PageID - 1) * req.PageSize,
 	}
 
@@ -84,4 +85,61 @@ func (server *Server) listAccounts(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, accounts)
+}
+
+type updateAccountRequest struct {
+	Balance int64 `json:"balance" binding:"required,min=0"`
+}
+
+func (server *Server) updateAccount(ctx *gin.Context) {
+	var uri getAccountRequest
+	var req updateAccountRequest
+
+	if err := ctx.ShouldBindUri(&uri); err != nil {
+		log.Println("error binding uri", err)
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		log.Println("error binding json", err)
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	arg := sqlc.UpdateAccountParams{
+		ID:      uri.ID,
+		Balance: req.Balance,
+	}
+
+	account, err := server.store.UpdateAccount(ctx, arg)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, errorResponse(err))
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, account)
+}
+
+func (server *Server) deleteAccount(ctx *gin.Context) {
+	var uri getAccountRequest
+	if err := ctx.ShouldBindUri(&uri); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	err := server.store.DeleteAccount(ctx, uri.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, errorResponse(err))
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
 }
