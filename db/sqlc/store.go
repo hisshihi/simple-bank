@@ -6,26 +6,31 @@ import (
 	"fmt"
 )
 
+type Store interface {
+	Querier
+	TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error)
+}
+
 /*
 Объединяет SQL-запросы (сгенерированные sqlc) и подключение к БД.
 
 	Это центральная точка для выполнения операций.
 */
-type Store struct {
+type SQLStore struct {
 	*Queries
 	db *sql.DB
 }
 
 // NewStore создает новый Store
-func NewStore(db *sql.DB) *Store {
-	return &Store{
+func NewStore(db *sql.DB) Store {
+	return &SQLStore{
 		db:      db,
 		Queries: New(db),
 	}
 }
 
 // execTx выполняет функцию в транзакции и откатывается при ошибке
-func (store *Store) execTx(ctx context.Context, fn func(*Queries) error) error {
+func (store *SQLStore) execTx(ctx context.Context, fn func(*Queries) error) error {
 	tx, err := store.db.BeginTx(ctx, nil) // BeginTx начинает транзакцию, nil - уровень изоляции(по умолчанию)
 	if err != nil {
 		return err
@@ -61,7 +66,7 @@ type TransferTxResult struct {
 
 // TransferTx переводит деньги из одного счета на другой
 // Создаст новую запись в истории транзакций, добавит сумму на счет и вычтет сумму с другого счета
-func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error) {
+func (store *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error) {
 	var result TransferTxResult
 
 	/*
