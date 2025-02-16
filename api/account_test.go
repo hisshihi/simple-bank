@@ -120,6 +120,117 @@ func TestGetAccountAPI(t *testing.T) {
 	}
 }
 
+// Тест API для создания аккаунта. Этот тест проверяет, что при отправке POST запроса на создание аккаунта,
+// сервер корректно обрабатывает запрос и возвращает созданный аккаунт с нужными данными.
+func TestCreateAccountAPI(t *testing.T) {
+	// Создаем случайный аккаунт для тестирования. Функция randomAccount генерирует аккаунт с рандомными данными.
+	account := randomAccount()
+
+	// Определяем набор тестовых сценариев, каждый из которых описывает конкретный случай:
+	// - name: Имя тестового сценария.
+	// - body: Тело запроса в JSON, которое будет отправлено на сервер.
+	// - buildStubs: Функция для настройки мок-объекта (имитации базы данных) с ожидаемым поведением.
+	// - checkResponse: Функция для проверки корректности ответа сервера.
+	testCases := []struct {
+		name          string
+		body          json.RawMessage
+		buildStubs    func(store *mockdb.MockStore)
+		checkResponse func(recorder *httptest.ResponseRecorder)
+	}{
+		{
+			// Сценарий "OK" — успешное создание аккаунта.
+			name: "OK",
+			// Формируем JSON строку с параметрами "owner" и "currency", используя данные из сгенерированного аккаунта.
+			body: json.RawMessage(fmt.Sprintf(`{"owner": "%s", "currency": "%s"}`, account.Owner, account.Currency)),
+			// buildStubs настраивает мок-объект базы данных так, чтобы при вызове CreateAccount возвращался наш аккаунт.
+			buildStubs: func(store *mockdb.MockStore) {
+				// Создаем аргументы для метода CreateAccount. Здесь balance всегда 0,
+				// а owner и currency берутся из сгенерированного аккаунта.
+				arg := sqlc.CreateAccountParams{
+					Owner:    account.Owner,
+					Balance:  0,
+					Currency: account.Currency,
+				}
+				// Ожидаем, что метод CreateAccount будет вызван один раз с любым контекстом и с аргументом, равным arg.
+				// Возвращаем account и nil, чтобы имитировать успешное создание аккаунта.
+				store.EXPECT().
+					CreateAccount(gomock.Any(), gomock.Eq(arg)).
+					Times(1).
+					Return(account, nil)
+			},
+			// checkResponse проверяет, что ответ сервера имеет статус 200 (OK) и тело ответа соответствует созданному аккаунту.
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				requireBodyMatchAccount(t, recorder.Body, account)
+			},
+		},
+		{
+			name: "BadRequest",
+			body: json.RawMessage(fmt.Sprintf(`{"owner": "", "currency": "%s"}`, account.Currency)),
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					CreateAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+				requireBodyMatchAccount(t, recorder.Body, sqlc.Account{})
+			},
+		},
+		{
+			name: "InternalServerError",
+			body: json.RawMessage(fmt.Sprintf(`{"owner": "%s", "currency": "%s"}`, account.Owner, account.Currency)),
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					CreateAccount(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(account, sql.ErrConnDone)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusInternalServerError, recorder.Code)
+				requireBodyMatchAccount(t, recorder.Body, sqlc.Account{})
+			},
+		},
+	}
+
+	// Перебираем все тестовые сценарии.
+	for i := range testCases {
+		tc := testCases[i]
+
+		// t.Run запускает под-тест с именем, указанным в тестовом сценарии.
+		t.Run(tc.name, func(t *testing.T) {
+			// Создаем контроллер для управления мок-объектами.
+			ctrl := gomock.NewController(t)
+			// defer ctrl.Finish() гарантирует, что после выполнения теста будут проверены все ожидания мока.
+			defer ctrl.Finish()
+
+			// Создаем мок-объект для Store, который эмулирует работу с базой данных.
+			store := mockdb.NewMockStore(ctrl)
+			// Настраиваем мок-объект согласно сценарию теста (описываем ожидаемое поведение).
+			tc.buildStubs(store)
+			
+			// Создаем новый сервер с нашим мок-объектом Store.
+			server := NewServer(store)
+			// Создаем объект recorder, который перехватывает ответ HTTP сервера.
+			recorder := httptest.NewRecorder()
+
+			// Определяем URL для запроса создания аккаунта.
+			url := "/accounts"
+			// Создаем новый HTTP запрос с методом POST.
+			// bytes.NewReader(tc.body) используется для передачи тела запроса, содержащего JSON с данными аккаунта.
+			request, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(tc.body))
+			// Проверяем, что при создании запроса не возникло ошибок.
+			require.NoError(t, err)
+			
+			// Отправляем запрос через роутер нашего сервера. Это симулирует обработку запроса, как если бы он поступил по HTTP.
+			server.router.ServeHTTP(recorder, request)
+
+			// Вызываем функцию проверки ответа, которая сверяет фактический ответ с ожидаемым.
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
 func randomAccount() sqlc.Account {
 	return sqlc.Account{
 		ID:       util.RandomInt(1, 1000),
