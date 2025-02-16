@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -267,19 +268,19 @@ func TestListAccountsAPI(t *testing.T) {
 			},
 		},
 		{
-			name: "BadRequest",
+			name:        "BadRequest",
 			queryParams: "?page_id=0&page_size=12",
 			buildStubs: func(store *mockdb.MockStore) {
 				store.EXPECT().
 					ListAccounts(gomock.Any(), gomock.Any()).
-					Times(0)	
+					Times(0)
 			},
 			checkResponse: func(recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusBadRequest, recorder.Code)
 			},
 		},
 		{
-			name: "InternalServerError",
+			name:        "InternalServerError",
 			queryParams: "?page_id=1&page_size=5",
 			buildStubs: func(store *mockdb.MockStore) {
 				store.EXPECT().
@@ -310,6 +311,146 @@ func TestListAccountsAPI(t *testing.T) {
 			require.NoError(t, err)
 
 			server.router.ServeHTTP(recorder, request)
+
+			tc.checkResponse(recorder)
+		})
+	}
+}
+
+// Тест API для обновления баланса аккаунта.
+func TestUpdateAccountAPI(t *testing.T) {
+	account := randomAccount()
+	newBalance := util.RandomMoney()
+
+	updatedAccount := account
+	updatedAccount.Balance = newBalance
+
+	t.Logf("Исходный баланс: %d, Новый баланс: %d", account.Balance, newBalance)
+
+	testCases := []struct {
+		name          string
+		accountID     int64
+		body          json.RawMessage
+		buildStubs    func(store *mockdb.MockStore)
+		checkResponse func(recorder *httptest.ResponseRecorder)
+	}{
+		{
+			name:      "OK",
+			accountID: account.ID,
+			body:      json.RawMessage(fmt.Sprintf(`{"balance": %d}`, newBalance)),
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := sqlc.UpdateAccountParams{
+					ID:      account.ID,
+					Balance: newBalance,
+				}
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Eq(arg)).
+					Do(func(ctx context.Context, params sqlc.UpdateAccountParams) {
+						// Выводим в лог параметры, с которыми вызывается метод обновления
+						fmt.Printf("Вызов UpdateAccount с параметрами: %+v\n", params)
+					}).
+					Times(1).
+					Return(updatedAccount, nil)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				requireBodyMatchAccount(t, recorder.Body, updatedAccount)
+			},
+		},
+		{
+			name:      "NotFound",
+			accountID: account.ID,
+			body:      json.RawMessage(fmt.Sprintf(`{"balance": %d}`, newBalance)),
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := sqlc.UpdateAccountParams{
+					ID:      account.ID,
+					Balance: newBalance,
+				}
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Eq(arg)).
+					Times(1).
+					Return(sqlc.Account{}, sql.ErrNoRows)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+		{
+			name:      "InternalServerError",
+			accountID: account.ID,
+			body:      json.RawMessage(fmt.Sprintf(`{"balance": %d}`, newBalance)),
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := sqlc.UpdateAccountParams{
+					ID:      account.ID,
+					Balance: newBalance,
+				}
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Eq(arg)).
+					Times(1).
+					Return(sqlc.Account{}, sql.ErrConnDone)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusInternalServerError, recorder.Code)
+			},
+		},
+		{
+			name:      "BadRequestUri",
+			accountID: 0,
+			body:      json.RawMessage(fmt.Sprintf(`{"balance": %d}`, newBalance)),
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := sqlc.UpdateAccountParams{
+					ID:      account.ID,
+					Balance: newBalance,
+				}
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Eq(arg)).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name:      "BadRequestBody",
+			accountID: account.ID,
+			body:      json.RawMessage(fmt.Sprintf(`{"balance": "not a number"}`)),
+			buildStubs: func(store *mockdb.MockStore) {
+				arg := sqlc.UpdateAccountParams{
+					ID:      account.ID,
+					Balance: newBalance,
+				}
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Eq(arg)).
+					Times(0)
+			},
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+	}
+
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+
+			server := NewServer(store)
+			recorder := httptest.NewRecorder()
+
+			url := fmt.Sprintf("/accounts/%d", tc.accountID)
+			request, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(tc.body))
+			require.NoError(t, err)
+
+			server.router.ServeHTTP(recorder, request)
+
+			// Выводим статус и тело ответа для отладки
+			fmt.Printf("Статус ответа: %d\n", recorder.Code)
+			fmt.Printf("Тело ответа: %s\n", recorder.Body.String())
 
 			tc.checkResponse(recorder)
 		})
