@@ -49,7 +49,7 @@ func RandomMoney() int64 {
 
 // RandomCurrency возвращает случайное значение из списка валют
 func RandomCurrency() string {
-	currencies := []string{"EUR", "USD", "CAD", "RUB"}
+	currencies := []string{EUR, USD, CAD, RUB}
 	n := len(currencies)
 	return currencies[rand.Intn(n)]
 }
