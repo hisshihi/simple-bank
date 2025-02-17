@@ -23,12 +23,15 @@ func NewServer(store sqlc.Store) *Server {
 		v.RegisterValidation("currency", validCurrency)
 	}
 
+	// endpoints пользователей
 	router.POST("/accounts", server.createAccount)
-	router.POST("/transfers", server.createTransfer)
 	router.GET("/accounts/:id", server.getAccount)
 	router.GET("/accounts", server.listAccounts)
 	router.PUT("/accounts/:id", server.updateAccount)
 	router.DELETE("/accounts/:id", server.deleteAccount)
+
+	// endpoints переводов
+	router.POST("/transfers", server.createTransfer)
 
 	server.router = router // присваиваем маршрутизатор серверу
 	return server // возвращаем сервер
