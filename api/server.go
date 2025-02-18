@@ -33,6 +33,10 @@ func NewServer(store sqlc.Store) *Server {
 	// endpoints переводов
 	router.POST("/transfers", server.createTransfer)
 
+	// endpoints пользователей
+	router.POST("/users", server.createUser)
+	router.GET("/users/:username", server.getUser)
+
 	server.router = router // присваиваем маршрутизатор серверу
 	return server // возвращаем сервер
 }
