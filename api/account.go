@@ -45,7 +45,6 @@ func (server *Server) createAccount(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, account)
-
 }
 
 type getAccountRequest struct {
