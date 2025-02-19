@@ -74,14 +74,15 @@ func (server *Server) createUser(ctx *gin.Context) {
 }
 
 type getUserRequest struct {
-	Username string `uri:"username" binding:"required,min=1"`
+	Username string `uri:"username" binding:"required,alphanum"`
 }
 
 func (server *Server) getUser(ctx *gin.Context) {
 	var req getUserRequest
 
+	// Проверяем, что параметры URI корректно привязались к структуре запроса (например, что username удовлетворяет требуемым ограничениям)
 	if err := ctx.ShouldBindUri(&req); err != nil {
-		ctx.JSON(http.StatusNotFound, errorResponse(err))
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
 
