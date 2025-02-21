@@ -104,7 +104,7 @@ func TestGetAccountAPI(t *testing.T) {
 			tc.buildStubs(store)
 
 			// Создаём новый HTTP-сервер с мок-объектом в качестве аргумента
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder() // Записывает ответы сервера
 
 			// Указываем параметр равный каждому тестовому случаю
@@ -217,7 +217,7 @@ func TestCreateAccountAPI(t *testing.T) {
 			tc.buildStubs(store)
 
 			// Создаем новый сервер с нашим мок-объектом Store.
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			// Создаем объект recorder, который перехватывает ответ HTTP сервера.
 			recorder := httptest.NewRecorder()
 
@@ -309,7 +309,7 @@ func TestListAccountsAPI(t *testing.T) {
 			store := mockdb.NewMockStore(ctrl)
 			tc.buildStubs(store)
 
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder()
 
 			url := "/accounts" + tc.queryParams
@@ -445,7 +445,7 @@ func TestUpdateAccountAPI(t *testing.T) {
 			store := mockdb.NewMockStore(ctrl)
 			tc.buildStubs(store)
 
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder()
 
 			url := fmt.Sprintf("/accounts/%d", tc.accountID)
@@ -540,7 +540,7 @@ func TestDeleteAccountAPI(t *testing.T) {
 			tc.buildStubs(store)
 
 			// Создаём новый HTTP-сервер с мок-объектом в качестве аргумента
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder() // Записывает ответы сервера
 
 			// Указываем параметр равный каждому тестовому случаю

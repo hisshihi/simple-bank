@@ -96,7 +96,7 @@ func TestGetUserAPI(t *testing.T) {
 			tc.buildStubs(store)
 
 			// Создаём новый HTTP-сервер с мок-объектом в качестве аргумента
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder() // Записывает ответы сервера
 
 			// Указываем параметр равный каждому тестовому случаю
@@ -261,7 +261,7 @@ func TestCreateUserAPI(t *testing.T) {
 			tc.buildStubs(store)
 
 			// Создаём новый HTTP-сервер с мок-объектом в качестве аргумента
-			server := NewServer(store)
+			server := newTestServer(t, store)
 			recorder := httptest.NewRecorder() // Записывает ответы сервера
 
 			// Указываем параметр равный каждому тестовому случаю
