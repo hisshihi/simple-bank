@@ -32,8 +32,12 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 		Amount:        req.Amount,
 	}
 
-	fromAccount, valid := server.validAccount(ctx, req.FromAccountID, req.Currency, req.Amount)
+	fromAccount, valid := server.validAccount(ctx, req.FromAccountID, req.Currency)
 	if !valid {
+		return
+	}
+
+	if !server.checkBalance(ctx, fromAccount.ID, req.Amount) {
 		return
 	}
 
@@ -45,7 +49,7 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 		return
 	}
 
-	_, valid = server.validAccount(ctx, req.ToAccountID, req.Currency, req.Amount)
+	_, valid = server.validAccount(ctx, req.ToAccountID, req.Currency)
 	if !valid {
 		return
 	}
@@ -60,7 +64,7 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 }
 
 // validAccount проверяет, существует ли счет и принадлежит ли он пользователю
-func (server *Server) validAccount(ctx *gin.Context, accountID int64, currency string, amount int64) (sqlc.Account, bool) {
+func (server *Server) validAccount(ctx *gin.Context, accountID int64, currency string) (sqlc.Account, bool) {
 	account, err := server.store.GetAccount(ctx, accountID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -77,11 +81,25 @@ func (server *Server) validAccount(ctx *gin.Context, accountID int64, currency s
 		return sqlc.Account{}, false
 	}
 
+	return account, true
+}
+
+func (server *Server) checkBalance(ctx *gin.Context, accountID int64, amount int64) bool {
+	account, err := server.store.GetAccount(ctx, accountID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, errorResponse(err))
+			return false
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return false
+	}
+
 	if account.Balance < amount {
 		err := fmt.Errorf("account [%d] balance not enough: %d < %d", accountID, account.Balance, amount)
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return sqlc.Account{}, false
+		return false
 	}
 
-	return account, true
+	return true
 }
