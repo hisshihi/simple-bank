@@ -44,19 +44,22 @@ func NewServer(config util.Config, store sqlc.Store) (*Server, error) {
 func (server *Server) setupRouter() {
 	router := gin.Default() // создаём маршрутизатор
 
+	// добавляем middleware авторизации
+	authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
+
 	// endpoints пользователей
-	router.POST("/accounts", server.createAccount)
-	router.GET("/accounts/:id", server.getAccount)
-	router.GET("/accounts", server.listAccounts)
-	router.PUT("/accounts/:id", server.updateAccount)
-	router.DELETE("/accounts/:id", server.deleteAccount)
+	authRoutes.POST("/accounts", server.createAccount)
+	authRoutes.GET("/accounts/:id", server.getAccount)
+	authRoutes.GET("/accounts", server.listAccounts)
+	authRoutes.PUT("/accounts/:id", server.updateAccount)
+	authRoutes.DELETE("/accounts/:id", server.deleteAccount)
 
 	// endpoints переводов
-	router.POST("/transfers", server.createTransfer)
+	authRoutes.POST("/transfers", server.createTransfer)
 
 	// endpoints пользователей
+	authRoutes.GET("/users/:username", server.getUser)
 	router.POST("/users", server.createUser)
-	router.GET("/users/:username", server.getUser)
 	router.POST("/users/login", server.loginUser)
 
 	server.router = router // присваиваем маршрутизатор серверу

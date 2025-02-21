@@ -2,11 +2,13 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/hisshihi/simple-bank-go/db/sqlc"
+	"github.com/hisshihi/simple-bank-go/token"
 )
 
 type transferRequest struct {
@@ -30,11 +32,21 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 		Amount:        req.Amount,
 	}
 
-	if !server.validAccount(ctx, req.FromAccountID, req.Currency, req.Amount) {
+	fromAccount, valid := server.validAccount(ctx, req.FromAccountID, req.Currency, req.Amount)
+	if !valid {
 		return
 	}
 
-	if !server.validAccount(ctx, req.ToAccountID, req.Currency, req.Amount) {
+	// проверяем, принадлежит ли счет пользователю
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+	if fromAccount.Owner != authPayload.Username {
+		err := errors.New("account doesn`t belong to the authenticated user")
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+
+	_, valid = server.validAccount(ctx, req.ToAccountID, req.Currency, req.Amount)
+	if !valid {
 		return
 	}
 
@@ -48,28 +60,28 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 }
 
 // validAccount проверяет, существует ли счет и принадлежит ли он пользователю
-func (server *Server) validAccount(ctx *gin.Context, accountID int64, currency string, amount int64) bool {
+func (server *Server) validAccount(ctx *gin.Context, accountID int64, currency string, amount int64) (sqlc.Account, bool) {
 	account, err := server.store.GetAccount(ctx, accountID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
-			return false
+			return sqlc.Account{}, false
 		}
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return false
+		return sqlc.Account{}, false
 	}
 
 	if account.Currency != currency {
 		err := fmt.Errorf("account [%d] currency mismatch: %s vs %s", accountID, account.Currency, currency)
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return false
+		return sqlc.Account{}, false
 	}
 
 	if account.Balance < amount {
 		err := fmt.Errorf("account [%d] balance not enough: %d < %d", accountID, account.Balance, amount)
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return false
+		return sqlc.Account{}, false
 	}
 
-	return true
+	return account, true
 }

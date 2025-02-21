@@ -10,27 +10,34 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	mockdb "github.com/hisshihi/simple-bank-go/db/mock"
 	"github.com/hisshihi/simple-bank-go/db/sqlc"
+	"github.com/hisshihi/simple-bank-go/token"
 	"github.com/hisshihi/simple-bank-go/util"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGetAccountAPI(t *testing.T) {
-	account := randomAccount()
+	user := randomUser()
+	account := randomAccount(user.Username)
 
 	// Создаём тестовые случаи
 	testCases := []struct {
 		name          string
 		accountID     int64
+		setupAuth     func(t *testing.T, request *http.Request, tokenMaker token.Maker)    // Функция настройки авторизации запроса.
 		buildStubs    func(store *mockdb.MockStore)
 		checkResponse func(recorder *httptest.ResponseRecorder)
 	}{
 		{
 			name:      "OK",
 			accountID: account.ID,
+			setupAuth: func(t *testing.T, request *http.Request, tokenMaker token.Maker) {
+				addAuthorization(t, request, tokenMaker, authorizationTypeBearer, user.Username, time.Minute)
+			},
 			buildStubs: func(store *mockdb.MockStore) {
 				// Ожидаем вызов GetAccount с любым контекстом и аргументом, равным account.ID
 				store.EXPECT().
@@ -45,8 +52,45 @@ func TestGetAccountAPI(t *testing.T) {
 			},
 		},
 		{
+			name:      "UnauthorizedUser",
+			accountID: account.ID,
+			setupAuth: func(t *testing.T, request *http.Request, tokenMaker token.Maker) {
+				addAuthorization(t, request, tokenMaker, authorizationTypeBearer, "unauthorized", time.Minute)
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				// Ожидаем вызов GetAccount с любым контекстом и аргументом, равным account.ID
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+					Times(1).
+					Return(account, nil)
+			},
+			// Проверяет ответ
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
+			name:      "NoAuthorization",
+			accountID: account.ID,
+			setupAuth: func(t *testing.T, request *http.Request, tokenMaker token.Maker) {
+			},
+			buildStubs: func(store *mockdb.MockStore) {
+				// Ожидаем вызов GetAccount с любым контекстом и аргументом, равным account.ID
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Any()).
+					Times(0)
+			},
+			// Проверяет ответ
+			checkResponse: func(recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusUnauthorized, recorder.Code)
+			},
+		},
+		{
 			name:      "NotFound",
 			accountID: account.ID,
+			setupAuth: func(t *testing.T, request *http.Request, tokenMaker token.Maker) {
+				addAuthorization(t, request, tokenMaker, authorizationTypeBearer, user.Username, time.Minute)
+			},
 			buildStubs: func(store *mockdb.MockStore) {
 				// Ожидаем вызов GetAccount с любым контекстом и аргументом, равным account.ID
 				store.EXPECT().
@@ -62,6 +106,9 @@ func TestGetAccountAPI(t *testing.T) {
 		{
 			name:      "InternalServerError",
 			accountID: account.ID,
+			setupAuth: func(t *testing.T, request *http.Request, tokenMaker token.Maker) {
+				addAuthorization(t, request, tokenMaker, authorizationTypeBearer, user.Username, time.Minute)
+			},
 			buildStubs: func(store *mockdb.MockStore) {
 				// Ожидаем вызов GetAccount с любым контекстом и аргументом, равным account.ID
 				store.EXPECT().
@@ -77,6 +124,9 @@ func TestGetAccountAPI(t *testing.T) {
 		{
 			name:      "InvalidID",
 			accountID: 0,
+			setupAuth: func(t *testing.T, request *http.Request, tokenMaker token.Maker) {
+				addAuthorization(t, request, tokenMaker, authorizationTypeBearer, user.Username, time.Minute)
+			},
 			buildStubs: func(store *mockdb.MockStore) {
 				// Ожидаем вызов GetAccount с любым контекстом и аргументом, равным account.ID
 				store.EXPECT().
@@ -112,6 +162,8 @@ func TestGetAccountAPI(t *testing.T) {
 			request, err := http.NewRequest(http.MethodGet, url, nil)
 			require.NoError(t, err)
 
+			tc.setupAuth(t, request, server.tokenMaker)
+
 			// Запускает сервер и обрабатывает запрос
 			server.router.ServeHTTP(recorder, request)
 
@@ -125,7 +177,8 @@ func TestGetAccountAPI(t *testing.T) {
 // сервер корректно обрабатывает запрос и возвращает созданный аккаунт с нужными данными.
 func TestCreateAccountAPI(t *testing.T) {
 	// Создаем случайный аккаунт для тестирования. Функция randomAccount генерирует аккаунт с рандомными данными.
-	account := randomAccount()
+	user := randomUser()
+	account := randomAccount(user.Username)
 
 	// Определяем набор тестовых сценариев, каждый из которых описывает конкретный случай:
 	// - name: Имя тестового сценария.
@@ -240,12 +293,12 @@ func TestCreateAccountAPI(t *testing.T) {
 
 // Функция TestListAccountsAPI тестирует API для получения списка аккаунтов.
 func TestListAccountsAPI(t *testing.T) {
-	accounts := []sqlc.Account{
-		randomAccount(),
-		randomAccount(),
-		randomAccount(),
-		randomAccount(),
-		randomAccount(),
+	user := randomUser()
+
+	n := 5
+	accounts := make([]sqlc.Account, n)
+	for v := range accounts {
+		accounts[v] = randomAccount(user.Username)
 	}
 
 	testCases := []struct {
@@ -325,7 +378,8 @@ func TestListAccountsAPI(t *testing.T) {
 
 // Тест API для обновления баланса аккаунта.
 func TestUpdateAccountAPI(t *testing.T) {
-	account := randomAccount()
+	user := randomUser()
+	account := randomAccount(user.Username)
 	newBalance := util.RandomMoney()
 
 	updatedAccount := account
@@ -465,7 +519,8 @@ func TestUpdateAccountAPI(t *testing.T) {
 
 // Тест API для удаления аккаунта.
 func TestDeleteAccountAPI(t *testing.T) {
-	account := randomAccount()
+	user := randomUser()
+	account := randomAccount(user.Username)
 
 	testCases := []struct {
 		name          string
@@ -557,10 +612,10 @@ func TestDeleteAccountAPI(t *testing.T) {
 	}
 }
 
-func randomAccount() sqlc.Account {
+func randomAccount(owner string) sqlc.Account {
 	return sqlc.Account{
 		ID:       util.RandomInt(1, 1000),
-		Owner:    util.RandomOwner(),
+		Owner:    owner,
 		Balance:  util.RandomMoney(),
 		Currency: util.RandomCurrency(),
 	}
