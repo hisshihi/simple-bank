@@ -19,6 +19,7 @@ WORKDIR /app
 
 # Копируем бинарный файл из builder stage
 COPY --from=builder /app/simple-bank-go .
+COPY app.env .
 
 # Открываем порт 8080
 EXPOSE 8080
