@@ -106,3 +106,23 @@ sql:
       database:
           uri: "postgresql://postgres:postgres@localhost:5432/simple-bank?sslmode=disable"
 ```
+
+## Тесты
+
+Создаём файл main_test.go в папке sqlc.
+Для создания соединения с базой данных и тестовых запросов
+
+Для подключения к базе данных используем пакет
+
+```bash
+go get github.com/lib/pq
+```
+
+## Тесты для sql запросов
+
+В папке db/sqlc создаём файлы для тестирования sql запросов.
+Для большего удобства тестирования запросов, добавляем библиотеку для тестирования.
+
+```bash
+go get github.com/stretchr/testify
+```
