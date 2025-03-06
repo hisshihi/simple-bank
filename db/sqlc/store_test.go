@@ -16,10 +16,10 @@ func TestTransferTx(t *testing.T) {
 	n := 5
 	amount := int64(10)
 
-	// Запускам n горутин, которые будт выполнять транзакции
 	errs := make(chan error)
 	results := make(chan TransferTxResult)
 
+	// Запускам n горутин, которые будт выполнять транзакции
 	for range n {
 		go func() {
 			result, err := store.TransferTx(context.Background(), TransferTxParams{
