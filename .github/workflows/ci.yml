@@ -45,5 +45,11 @@ jobs:
       - name: Run migration
         run: make migrateup
 
+      - name: Create .env file
+        run: |
+          echo "DB_DRIVER=postgres" > .env
+          echo "DB_SOURCE=postgresql://root:secret@localhost:5432/simple_bank?sslmode=disable" >> .env
+          echo "SERVER_ADDRESS=:8080" >> .env
+
       - name: Test
         run: make test
