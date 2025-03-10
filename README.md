@@ -126,3 +126,22 @@ go get github.com/lib/pq
 ```bash
 go get github.com/stretchr/testify
 ```
+
+## Mock тесты
+
+Для mock тестов используем библиотеку
+
+```bash
+go install go.uber.org/mock/mockgen@latest
+```
+
+Для создания mock тестов используем команду
+
+```bash
+mockgen -package mockdb -destination db/mock/store.go github.com/hisshihi/simple-bank/db/sqlc Store
+```
+
+- package - имя пакета для создания mock тестов
+- destination - директория для создания mock тестов
+- github.com/hisshihi/simple-bank/db/sqlc - путь к пакету
+- Store - интерфейс, который мы хотим протестировать

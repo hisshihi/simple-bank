@@ -7,12 +7,12 @@ import (
 
 // Обработка всех http запросов
 type Server struct {
-	store  *sqlc.Store
+	store  sqlc.Store
 	router *gin.Engine
 }
 
 // NewServer создаёт новый HTTP сервер и настраивает маршрутиризатор
-func NewServer(store *sqlc.Store) *Server {
+func NewServer(store sqlc.Store) *Server {
 	server := &Server{store: store}
 
 	// создаёт новый маршрутизатор Gin с настройками по умолчанию
