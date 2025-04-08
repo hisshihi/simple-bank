@@ -1,0 +1,21 @@
+version: "2"
+sql:
+  # Определяем схему для PostgreSQL
+  - schema: "./db/migration/" # Директория, где хранятся файлы миграций/схемы базы данных
+    queries: "./db/query/" # Директория с SQL-запросами
+    engine: "postgresql" # Указываем, что используем PostgreSQL
+
+    # Настройки генерации кода
+    gen:
+      go: # Настройки для Go (можно заменить на другой язык)
+        package: "sqlc" # Имя пакета для сгенерированного кода
+        out: "./db/sqlc" # Директория для сгенерированного кода
+        emit_json_tags: true # Генерировать JSON-теги для структур
+        emit_prepared_queries: false # Использовать prepared statements
+        emit_interface: true # Генерировать интерфейсы
+        emit_exact_table_names: false # Использовать точные имена таблиц
+        emit_empty_slices: true # Возвращать пустые слайсы вместо nil
+
+    # Дополнительные настройки для работы с базой данных
+    database:
+      uri: "postgresql://root:secret@localhost:5432/simple_bank?sslmode=disable"
