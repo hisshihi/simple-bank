@@ -2,20 +2,26 @@ package sqlc
 
 import (
 	"database/sql"
-	"fmt"
+	"log"
 	"os"
 	"testing"
 
 	_ "github.com/lib/pq"
 )
 
+const (
+	dbDriver = "postgres"
+	dbSource = "postgresql://root:secret@localhost:5432/simple_bank?sslmode=disable"
+)
+
 var testQueries *Queries
 var testDB *sql.DB
 
 func TestMain(m *testing.M) {
-	testDB, err := NewTestDB()
+	var err error
+	testDB, err := sql.Open(dbDriver, dbSource)
 	if err != nil {
-		fmt.Errorf("ошибка в файле main_test.go", err)
+		log.Fatal("не удалось подключится к базе данных")
 	}
 
 	testQueries = New(testDB)
