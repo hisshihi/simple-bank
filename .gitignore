@@ -1,3 +1,4 @@
 .vscode
 .env
 .out
+db/sqlc/*.out
