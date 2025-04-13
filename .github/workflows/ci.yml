@@ -33,7 +33,7 @@ jobs:
           go-version: "1.24"
 
       - name: Run migrations
-        run: make migreateup
+        run: make migrateup
 
       - name: Test
         run: go test -v ./...
