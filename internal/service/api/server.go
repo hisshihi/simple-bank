@@ -22,6 +22,10 @@ func NewServer(store *sqlc.Store) *Server {
 	router.PUT("/accounts/:id", server.updateAccount)
 	router.DELETE("/accounts/:id", server.deleteAccount)
 
+	router.POST("/entries", server.createEntry)
+	router.GET("/entries/:id", server.getEntry)
+	router.GET("/entries", server.listEntries)
+
 	server.router = router
 	return server
 }
