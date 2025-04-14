@@ -102,3 +102,51 @@ func (server *Server) listAccount(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, accounts)
 }
+
+type updateAccountRequest struct {
+	Balance int64 `json:"balance" binding:"required"`
+}
+
+func (server *Server) updateAccount(ctx *gin.Context) {
+	var reqID getAccountRequest
+	var req updateAccountRequest
+
+	if err := ctx.ShouldBindUri(&reqID); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	account, err := server.store.GetAccount(ctx, reqID.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, errorResponse(err))
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	arg := sqlc.UpdateAccountParams{
+		ID:      account.ID,
+		Balance: req.Balance,
+	}
+
+	updateAccount, err := server.store.UpdateAccount(ctx, arg)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	rsp := accountResponse{
+		Owner:    updateAccount.Owner,
+		Currency: updateAccount.Currency,
+		Balance:  updateAccount.Balance,
+	}
+
+	ctx.JSON(http.StatusOK, rsp)
+}
