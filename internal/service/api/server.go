@@ -17,6 +17,7 @@ func NewServer(store *sqlc.Store) *Server {
 	router := gin.Default()
 
 	router.POST("/account", server.createAccount)
+	router.GET("/account/:id", server.getAccount)
 
 	server.router = router
 	return server
