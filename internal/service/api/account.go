@@ -14,6 +14,7 @@ type createAccountRequest struct {
 }
 
 type accountResponse struct {
+	ID       int64  `json:"id"`
 	Owner    string `json:"owner"`
 	Currency string `json:"currency"`
 	Balance  int64  `json:"balance"`
@@ -39,6 +40,7 @@ func (server *Server) createAccount(ctx *gin.Context) {
 	}
 
 	rsp := accountResponse{
+		ID:       account.ID,
 		Owner:    account.Owner,
 		Currency: account.Currency,
 		Balance:  account.Balance,
@@ -69,6 +71,7 @@ func (server *Server) getAccount(ctx *gin.Context) {
 	}
 
 	rsp := accountResponse{
+		ID:       account.ID,
 		Owner:    account.Owner,
 		Currency: account.Currency,
 		Balance:  account.Balance,
@@ -143,6 +146,7 @@ func (server *Server) updateAccount(ctx *gin.Context) {
 	}
 
 	rsp := accountResponse{
+		ID:       updateAccount.ID,
 		Owner:    updateAccount.Owner,
 		Currency: updateAccount.Currency,
 		Balance:  updateAccount.Balance,
