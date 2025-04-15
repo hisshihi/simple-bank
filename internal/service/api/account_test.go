@@ -258,6 +258,70 @@ func TestUpdateAccountAPI(t *testing.T) {
 				require.Equal(t, http.StatusNotFound, recorder.Code)
 			},
 		},
+		{
+			name:      "UriBadRequest",
+			accountID: -1,
+			body:      json.RawMessage(fmt.Sprintf(`{"balance": %d}`, int64(newBalance))),
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+					Times(0)
+
+				arg := sqlc.UpdateAccountParams{
+					ID:      account.ID,
+					Balance: int64(newBalance),
+				}
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Eq(arg)).
+					Times(0)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				// Проверка ответа
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name:      "BodyBadRequest",
+			accountID: account.ID,
+			body:      json.RawMessage(fmt.Sprintf(`{"balance": %s}`, "")),
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+					Times(0)
+
+				arg := sqlc.UpdateAccountParams{
+					ID:      account.ID,
+					Balance: int64(newBalance),
+				}
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Eq(arg)).
+					Times(0)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				// Проверка ответа
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+		{
+			name:      "InternalError",
+			accountID: account.ID,
+			body:      json.RawMessage(fmt.Sprintf(`{"balance": %d}`, int64(newBalance))),
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+					Times(1).
+					Return(account, nil)
+
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Any()).
+					Times(1).
+					Return(updatedAccount, sql.ErrConnDone)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				// Проверка ответа
+				require.Equal(t, http.StatusInternalServerError, recorder.Code)
+			},
+		},
 	}
 
 	for i := range testCases {
