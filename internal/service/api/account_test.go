@@ -196,6 +196,93 @@ func TestGetAccountAPI(t *testing.T) {
 	}
 }
 
+func TestUpdateAccountAPI(t *testing.T) {
+	account := randomAccount()
+	newBalance := gofakeit.Price(10, 100)
+	updatedAccount := account
+	updatedAccount.Balance = int64(newBalance)
+
+	testCases := []struct {
+		name          string
+		body          json.RawMessage
+		accountID     int64
+		buildStubs    func(store *mockdb.MockStore)
+		checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder)
+	}{
+		{
+			name:      "OK",
+			accountID: account.ID,
+			body:      json.RawMessage(fmt.Sprintf(`{"balance": %d}`, int64(newBalance))),
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+					Times(1).
+					Return(account, nil)
+
+				arg := sqlc.UpdateAccountParams{
+					ID:      account.ID,
+					Balance: int64(newBalance),
+				}
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Eq(arg)).
+					Times(1).
+					Return(updatedAccount, nil)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				// Проверка ответа
+				require.Equal(t, http.StatusOK, recorder.Code)
+				requireBodyMathAccount(t, recorder.Body, updatedAccount)
+			},
+		},
+		{
+			name:      "NotFound",
+			accountID: account.ID,
+			body:      json.RawMessage(fmt.Sprintf(`{"balance": %d}`, int64(newBalance))),
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().
+					GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+					Times(1).
+					Return(account, nil)
+
+				arg := sqlc.UpdateAccountParams{
+					ID:      account.ID,
+					Balance: int64(newBalance),
+				}
+				store.EXPECT().
+					UpdateAccount(gomock.Any(), gomock.Eq(arg)).
+					Times(1).
+					Return(sqlc.Account{}, sql.ErrNoRows)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				// Проверка ответа
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+	}
+
+	for i := range testCases {
+		tc := testCases[i]
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			// Проверит, все ли методы были вызваны
+			defer ctrl.Finish()
+
+			store := mockdb.NewMockStore(ctrl)
+			tc.buildStubs(store)
+			// старт тестового сервера и отправка запроса
+			server := NewServer(store)
+			recorder := httptest.NewRecorder()
+
+			url := fmt.Sprintf("/accounts/%d", tc.accountID)
+			request, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(tc.body))
+			require.NoError(t, err)
+
+			server.router.ServeHTTP(recorder, request)
+			tc.checkResponse(t, recorder)
+		})
+	}
+}
+
 func randomAccount() sqlc.Account {
 	currencies := []string{"RUB", "USD", "EUR"}
 	return sqlc.Account{
