@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	mockdb "github.com/hisshihi/simple-bank/db/mock"
 	"github.com/hisshihi/simple-bank/db/sqlc"
+	"github.com/hisshihi/simple-bank/pkg/util"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -437,12 +438,11 @@ func TestDeleteAccountAPI(t *testing.T) {
 }
 
 func randomAccount() sqlc.Account {
-	currencies := []string{"RUB", "USD", "EUR"}
 	return sqlc.Account{
 		ID:       int64(gofakeit.Number(1, 1000)),
 		Owner:    gofakeit.Name(),
 		Balance:  int64(gofakeit.Price(10, 100)),
-		Currency: gofakeit.RandomString(currencies),
+		Currency: util.RandomCurrency(),
 	}
 }
 

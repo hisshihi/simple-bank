@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/brianvoe/gofakeit/v7"
+	"github.com/hisshihi/simple-bank/pkg/util"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,7 +15,7 @@ func createRandomAccount(t *testing.T) Account {
 	arg := CreateAccountParams{
 		Owner:    gofakeit.Name(),
 		Balance:  int64(gofakeit.Price(10, 100)),
-		Currency: gofakeit.CurrencyShort(),
+		Currency: util.RandomCurrency(),
 	}
 
 	account, err := testQueries.CreateAccount(context.Background(), arg)
