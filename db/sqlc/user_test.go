@@ -6,13 +6,16 @@ import (
 	"time"
 
 	"github.com/brianvoe/gofakeit/v7"
+	"github.com/hisshihi/simple-bank/pkg/util"
 	"github.com/stretchr/testify/require"
 )
 
 func createRandomUser(t *testing.T) User {
+	hashedPassword, err := util.HashPassword(gofakeit.Password(true, true, true, true, false, 6))
+	require.NoError(t, err)
 	arg := CreateUserParams{
 		Username:       gofakeit.Username(),
-		HashedPassword: gofakeit.Password(true, true, true, true, false, 6),
+		HashedPassword: hashedPassword,
 		FullName:       gofakeit.FirstName() + " " + gofakeit.LastName(),
 		Email:          gofakeit.Email(),
 	}
