@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -59,6 +60,57 @@ func (server *Server) register(ctx *gin.Context) {
 		Username: user.Username,
 		Email:    user.Email,
 		FullName: user.FullName,
+	}
+
+	ctx.JSON(http.StatusOK, rsp)
+}
+
+type loginRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required,min=6"`
+}
+
+type loginResponse struct {
+	AccessToken string       `json:"access_token"`
+	User        userResponse `json:"user"`
+}
+
+func (server *Server) login(ctx *gin.Context) {
+	var req loginRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	user, err := server.store.GetUser(ctx, req.Username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	err = util.CheckPassword(user.HashedPassword, req.Password)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid password"})
+		return
+	}
+
+	accessToken, err := server.tokenMaker.CreateToken(user.Username, server.config.AccesTokenDuration)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	rsp := loginResponse{
+		AccessToken: accessToken,
+		User: userResponse{
+			Username: user.Username,
+			Email:    user.Email,
+			FullName: user.FullName,
+		},
 	}
 
 	ctx.JSON(http.StatusOK, rsp)
