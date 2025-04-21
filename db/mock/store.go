@@ -145,6 +145,21 @@ func (mr *MockStoreMockRecorder) GetAccount(ctx, id any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccount", reflect.TypeOf((*MockStore)(nil).GetAccount), ctx, id)
 }
 
+// GetAccountByOwner mocks base method.
+func (m *MockStore) GetAccountByOwner(ctx context.Context, owner string) (sqlc.Account, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAccountByOwner", ctx, owner)
+	ret0, _ := ret[0].(sqlc.Account)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAccountByOwner indicates an expected call of GetAccountByOwner.
+func (mr *MockStoreMockRecorder) GetAccountByOwner(ctx, owner any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountByOwner", reflect.TypeOf((*MockStore)(nil).GetAccountByOwner), ctx, owner)
+}
+
 // GetAccountForUpdate mocks base method.
 func (m *MockStore) GetAccountForUpdate(ctx context.Context, id int64) (sqlc.Account, error) {
 	m.ctrl.T.Helper()
