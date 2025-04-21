@@ -6,11 +6,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hisshihi/simple-bank/db/sqlc"
+	"github.com/hisshihi/simple-bank/pkg/util"
 	"github.com/lib/pq"
 )
 
 type createAccountRequest struct {
-	Owner    string `json:"owner" binding:"required"`
 	Currency string `json:"currency" binding:"required,currency"`
 }
 
@@ -28,8 +28,14 @@ func (server *Server) createAccount(ctx *gin.Context) {
 		return
 	}
 
+	authPayload, ok := ctx.MustGet(authorizationPayloadKey).(*util.Payload)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	arg := sqlc.CreateAccountParams{
-		Owner:    req.Owner,
+		Owner:    authPayload.Username,
 		Balance:  0,
 		Currency: req.Currency,
 	}
@@ -85,6 +91,16 @@ func (server *Server) getAccount(ctx *gin.Context) {
 		Balance:  account.Balance,
 	}
 
+	authPayload, ok := ctx.MustGet(authorizationPayloadKey).(*util.Payload)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	if account.Owner != authPayload.Username {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "account doesn't belong to the authenticated user"})
+		return
+	}
+
 	ctx.JSON(http.StatusOK, rsp)
 }
 
@@ -100,7 +116,14 @@ func (server *Server) listAccount(ctx *gin.Context) {
 		return
 	}
 
+	authPayload, ok := ctx.MustGet(authorizationPayloadKey).(*util.Payload)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	arg := sqlc.ListAccountsParams{
+		Owner:  authPayload.Username,
 		Limit:  int64(req.PageSize),
 		Offset: int64((req.PageID - 1) * req.PageSize),
 	}
@@ -119,20 +142,20 @@ type updateAccountRequest struct {
 }
 
 func (server *Server) updateAccount(ctx *gin.Context) {
-	var reqID getAccountRequest
 	var req updateAccountRequest
-
-	if err := ctx.ShouldBindUri(&reqID); err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return
-	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
 
-	account, err := server.store.GetAccount(ctx, reqID.ID)
+	authPayload, ok := ctx.MustGet(authorizationPayloadKey).(*util.Payload)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	account, err := server.store.GetAccountByOwner(ctx, authPayload.Username)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
@@ -173,7 +196,13 @@ func (server *Server) deleteAccount(ctx *gin.Context) {
 		return
 	}
 
-	account, err := server.store.GetAccount(ctx, req.ID)
+	authPayload, ok := ctx.MustGet(authorizationPayloadKey).(*util.Payload)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	account, err := server.store.GetAccountByOwner(ctx, authPayload.Username)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
