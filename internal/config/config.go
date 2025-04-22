@@ -10,6 +10,8 @@ import (
 type Config struct {
 	DBDriver           string        `mapstructure:"DB_DRIVER"`
 	DBSource           string        `mapstructure:"DB_SOURCE"`
+	DBSouceProd        string        `mapstructure:"DB_SOURCE_PROD"`
+	ENV                string        `mapstructure:"ENV"`
 	ServerAddress      string        `mapstructure:"SERVER_ADDRESS"`
 	TokenSymmetricKey  string        `mapstructure:"TOKEN_SYMMETRIC_KEY"`
 	AccesTokenDuration time.Duration `mapstructure:"ACCESS_TOKEN_DURATION"`

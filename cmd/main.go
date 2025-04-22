@@ -15,19 +15,38 @@ func main() {
 	if err != nil {
 		log.Fatal("cannot load config", err)
 	}
-	conn, err := sql.Open(config.DBDriver, config.DBSource)
-	if err != nil {
-		log.Fatal("не удалось подключится к базе данных")
-	}
 
-	store := sqlc.NewStore(conn)
-	server, err := api.NewServer(config, store)
-	if err != nil {
-		log.Fatal("cannot create server", err)
-	}
+	if config.ENV == "production" {
+		conn, err := sql.Open(config.DBDriver, config.DBSouceProd)
+		if err != nil {
+			log.Fatal("не удалось подключится к базе данных")
+		}
 
-	err = server.Start(config.ServerAddress)
-	if err != nil {
-		log.Fatal("cannot create server", err)
+		store := sqlc.NewStore(conn)
+		server, err := api.NewServer(config, store)
+		if err != nil {
+			log.Fatal("cannot create server", err)
+		}
+
+		err = server.Start(config.ServerAddress)
+		if err != nil {
+			log.Fatal("cannot create server", err)
+		}
+	} else {
+		conn, err := sql.Open(config.DBDriver, config.DBSource)
+		if err != nil {
+			log.Fatal("не удалось подключится к базе данных")
+		}
+
+		store := sqlc.NewStore(conn)
+		server, err := api.NewServer(config, store)
+		if err != nil {
+			log.Fatal("cannot create server", err)
+		}
+
+		err = server.Start(config.ServerAddress)
+		if err != nil {
+			log.Fatal("cannot create server", err)
+		}
 	}
 }
