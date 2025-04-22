@@ -38,7 +38,15 @@ func NewServer(config config.Config, store sqlc.Store) (*Server, error) {
 }
 
 func (server *Server) setupRouter() {
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(gin.Logger())
+	router.SetTrustedProxies([]string{
+		"127.0.0.1",
+		"10.0.0.0/8",
+		"172.17.0.2/12",
+		"192.168.0.0/16",
+	})
 
 	router.POST("/register", server.register)
 	router.POST("/login", server.login)
