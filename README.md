@@ -145,3 +145,48 @@ mockgen -package mockdb -destination db/mock/store.go github.com/hisshihi/simple
 - destination - директория для создания mock тестов
 - github.com/hisshihi/simple-bank/db/sqlc - путь к пакету
 - Store - интерфейс, который мы хотим протестировать
+
+## Организация общения приложения и бд в docker контейнере
+
+Для общения приложения и бд создаём общую сеть в контейнере.
+
+```bash
+docker network create bank-network
+```
+
+Далее собираем образ приложения и запускаем его в контейнере.
+
+```bash
+docker build -t simplebank .
+```
+
+Пример
+
+```bash
+# Build stage
+FROM golang:1.24-alpine3.21 AS builder
+WORKDIR /app
+COPY . .
+RUN go build -o main cmd/main.go
+
+# Run stage
+FROM alpine:3.21
+WORKDIR /app
+COPY --from=builder /app/main .
+COPY app.env .
+
+EXPOSE 8080
+CMD ["./main"]
+```
+
+Затем запускаем контейнер с приложением и подключаем его к сети bank-network.
+
+```bash
+docker run --name simplebank --network bank-network -p 8080:8080 -e GIN_MODE=release -e DB_SOURCE="postgres://root:secret@simple-bank-db:5432/simple_bank?sslmode=disable" simplebank:latest
+```
+
+--network bank-network - подключаем контейнер к сети bank-network
+
+-e GIN_MODE=release - устанавливаем режим работы gin
+
+-e DB_SOURCE="postgres://root:secret@simple-bank-db:5432/simple_bank?sslmode=disable" - устанавливаем переменную окружения DB_SOURCE для подключения к базе данных
