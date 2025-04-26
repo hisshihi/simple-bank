@@ -185,8 +185,20 @@ CMD ["./main"]
 docker run --name simplebank --network bank-network -p 8080:8080 -e GIN_MODE=release -e DB_SOURCE="postgres://root:secret@simple-bank-db:5432/simple_bank?sslmode=disable" simplebank:latest
 ```
 
---network bank-network - подключаем контейнер к сети bank-network
+Подключаем контейнер к сети bank-network
 
--e GIN_MODE=release - устанавливаем режим работы gin
+```bash
+--network bank-network
+```
 
--e DB_SOURCE="postgres://root:secret@simple-bank-db:5432/simple_bank?sslmode=disable" - устанавливаем переменную окружения DB_SOURCE для подключения к базе данных
+Устанавливаем режим работы gin
+
+```bash
+-e GIN_MODE=release
+```
+
+Устанавливаем переменную окружения DB_SOURCE для подключения к базе данных
+
+```bash
+-e DB_SOURCE="postgres://root:secret@simple-bank-db:5432/simple_bank?sslmode=disable"
+```
